@@ -1,0 +1,24 @@
+#!/bin/bash
+# Get directory of script
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="${DIR}/$SOURCE"
+done
+MAIN_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+cd "${MAIN_DIR}/gem5"
+
+# Check if scons is installed
+if ! command -v scons >/dev/null 2>&1; then
+    echo "Error: 'scons' not found. Install it with: sudo apt install scons"
+    exit 1
+fi
+
+# Build ARM target
+scons build/ARM/gem5.opt -j"$(nproc)"
+if [ ! -f "${MAIN_DIR}/gem5/build/ARM/gem5.opt" ]; then
+    echo "Gem5 ARM build was not successful."
+    exit 1
+fi
