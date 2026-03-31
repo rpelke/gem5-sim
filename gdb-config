@@ -1,0 +1,20 @@
+set architecture aarch64
+
+python
+import os
+# Load elf file of the Linux kernel
+# LINUX_KERNEL_ELF should point to the `vmlinux` file
+gdb.execute(f"file {os.environ['LINUX_KERNEL_ELF']}")
+# Substitute the path to the buildroot source code, so that gdb can find the source files when debugging the kernel.
+# This is necessary because the image was built in a container, and the source code is not available in the same path on the host machine.
+# BUILDROOT_SRC should point to the `gem5_sw/BUILD/buildroot` directory.
+gdb.execute(f"set substitute-path /app/build/buildroot {os.environ['BUILDROOT_SRC']}")
+end
+
+layout split
+focus cmd
+
+# Define a `connect` command to connect to the gem5 VP
+define connect
+  target remote localhost:7000
+end
