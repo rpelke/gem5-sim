@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # Get directory of script
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -19,8 +21,10 @@ if ! command -v scons >/dev/null 2>&1; then
     exit 1
 fi
 
+EXTRAS_DIR="${MAIN_DIR}/accelerator"
+
 # Build ARM target
-scons build/ARM/gem5.opt -j`nproc`
+scons build/ARM/gem5.opt EXTRAS="${EXTRAS_DIR}" -j"$(nproc)"
 if [ ! -f "${MAIN_DIR}/gem5/build/ARM/gem5.opt" ]; then
     echo "Gem5 ARM build was not successful."
     exit 1

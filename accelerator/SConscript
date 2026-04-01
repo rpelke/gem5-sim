@@ -1,0 +1,6 @@
+Import('*')
+
+env.Prepend(CPPPATH=Dir('inc').srcnode())
+
+SimObject('python/DummyMmio.py', sim_objects=['DummyMmio'])
+Source('src/dummy_mmio.cc')

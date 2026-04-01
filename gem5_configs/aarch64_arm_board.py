@@ -140,6 +140,31 @@ def get_bootloader_paths() -> list[str]:
     ]
 
 
+def attach_dummy_mmio(board, args) -> None:
+    if not args.dummy_mmio:
+        return
+
+    try:
+        from m5.objects import DummyMmio
+    except ImportError as exc:
+        raise RuntimeError(
+            "DummyMmio is not available in this gem5 build. "
+            "Rebuild gem5 with EXTRAS pointing to the accelerator directory."
+        ) from exc
+
+    board.dummy_mmio = DummyMmio(
+        pio_addr=args.dummy_mmio_addr,
+        pio_size=args.dummy_mmio_size,
+        pio_latency=args.dummy_mmio_latency,
+    )
+    board.dummy_mmio.pio = board.get_io_bus().mem_side_ports
+    print(
+        "Attached DummyMmio at "
+        f"{args.dummy_mmio_addr:#x} size={args.dummy_mmio_size:#x} "
+        f"latency={args.dummy_mmio_latency}"
+    )
+
+
 def create_board(args):
     if args.script and not os.path.isfile(args.script):
         raise FileNotFoundError(f"Bootscript does not exist: {args.script}")
@@ -190,6 +215,7 @@ def create_board(args):
         board.workload.initrd_filename = os.path.abspath(args.initrd)
 
     board._bootloader = get_bootloader_paths()
+    attach_dummy_mmio(board, args)
 
     return board
 
@@ -256,6 +282,29 @@ def main():
         help="Specify the physical memory size",
     )
     parser.add_argument("--restore", type=str, default=None)
+    parser.add_argument(
+        "--dummy-mmio",
+        action="store_true",
+        help="Attach the out-of-tree DummyMmio peripheral to the board I/O bus",
+    )
+    parser.add_argument(
+        "--dummy-mmio-addr",
+        type=lambda value: int(value, 0),
+        default=0x1C150000,
+        help="MMIO base address for DummyMmio",
+    )
+    parser.add_argument(
+        "--dummy-mmio-size",
+        type=lambda value: int(value, 0),
+        default=0x4,
+        help="MMIO window size for DummyMmio",
+    )
+    parser.add_argument(
+        "--dummy-mmio-latency",
+        type=str,
+        default="10ns",
+        help="PIO latency for DummyMmio",
+    )
 
     args = parser.parse_args()
 

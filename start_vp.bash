@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # Get directory of script
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -14,4 +16,5 @@ export M5_PATH=${MAIN_DIR}/images/system
     --kernel ${M5_PATH}/binaries/vmlinux \
     --disk-image ${M5_PATH}/binaries/rootfs.ext2 \
     --dtb ${M5_PATH}/system.dtb \
-    --root-device /dev/vda
+    --root-device /dev/vda \
+    "$@"
