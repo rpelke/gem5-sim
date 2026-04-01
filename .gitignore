@@ -2,3 +2,4 @@
 *.log
 m5out
 env.*
+__pycache__
