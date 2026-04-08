@@ -18,9 +18,9 @@ DummyMmio::read(PacketPtr pkt)
     const Addr off = pkt->getAddr() - pioAddr;
     pkt->makeAtomicResponse();
 
-    // Expose the single 32-bit register at offset 0x0.
-    if (off == 0x0 && pkt->getSize() == sizeof(uint32_t)) {
-        pkt->setLE<uint32_t>(reg0);
+    // Expose the single 64-bit register at offset 0x0.
+    if (off == 0x0 && pkt->getSize() == sizeof(uint64_t)) {
+        pkt->setLE<uint64_t>(reg0);
     } else {
         panic("DummyMmio: invalid read addr=%#x size=%u",
               pkt->getAddr(), pkt->getSize());
@@ -35,10 +35,11 @@ DummyMmio::write(PacketPtr pkt)
     const Addr off = pkt->getAddr() - pioAddr;
     pkt->makeAtomicResponse();
 
-    // Store 32-bit writes to the single register and log the new value.
-    if (off == 0x0 && pkt->getSize() == sizeof(uint32_t)) {
-        reg0 = pkt->getLE<uint32_t>();
-        inform("DummyMmio: reg0 <- %#x", reg0);
+    // Store 64-bit writes to the single register and log the new value.
+    if (off == 0x0 && pkt->getSize() == sizeof(uint64_t)) {
+        reg0 = pkt->getLE<uint64_t>();
+        inform("DummyMmio: reg0 <- %#llx",
+               static_cast<unsigned long long>(reg0));
     } else {
         panic("DummyMmio: invalid write addr=%#x size=%u",
               pkt->getAddr(), pkt->getSize());

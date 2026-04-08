@@ -10,7 +10,7 @@ namespace gem5
 class DummyMmio : public BasicPioDevice
 {
   private:
-    uint32_t reg0;
+    uint64_t reg0;
 
   public:
     PARAMS(DummyMmio);

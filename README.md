@@ -50,12 +50,12 @@
 
     To write `0xcaffee` to the device register from Linux, use:
     ```bash
-    devmem 0x1c150000 32 0xcaffee
+    devmem 0x1c150000 64 0xcaffee
     ```
 
     To read the register value back, use:
     ```bash
-    devmem 0x1c150000 32
+    devmem 0x1c150000 64
     ```
 
     You should get the following output:

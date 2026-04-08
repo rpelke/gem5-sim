@@ -296,7 +296,7 @@ def main():
     parser.add_argument(
         "--dummy-mmio-size",
         type=lambda value: int(value, 0),
-        default=0x4,
+        default=0x8,
         help="MMIO window size for DummyMmio",
     )
     parser.add_argument(
