@@ -3,7 +3,7 @@
 ## Build & Install
 1. Clone the repository including submodules:
     ```bash
-    git clone --recursive git@gitlab.ice.rwth-aachen.de:pelke/gem5-sim.git
+    git clone --recursive git@github.com:rpelke/gem5-sim.git
     ```
 
 1. Build gem5:
@@ -37,6 +37,7 @@
     ./start_vp.bash
     ```
 
+<a id="dummy-mmio"></a>
 *   (Optional)
     To attach the (out-of-tree) [`DummyMmio`](accelerator/python/DummyMmio.py) device to the bus, use:
     ```bash
@@ -93,3 +94,39 @@
     ```bash
     telnet localhost 3456
     ```
+
+## Example: Testing the `my_custom_peripheral` Driver
+
+- Make sure the driver is build in [gem5_sw](https://github.com/rpelke/gem5_sw).
+
+- Start the VP with the `--dummy-mmio` flag (see [DummyMmio setup](#dummy-mmio)).
+
+- Load the driver module:
+    ```bash
+    modprobe my_custom_peripheral
+    ```
+    (To unload the module, use `rmmod my_custom_peripheral`.)
+
+- List registered kernel drivers containing "my_" in name:
+    ```bash
+    cat /proc/devices | grep my_
+    ```
+    You should get `245 my_custom_peripheral`.
+
+- Check the device class in sysfs:
+    ```bash
+    ls /sys/class
+    ```
+    You should see `my_custom_peripheral` somewhere.
+
+    This directory is part of **sysfs** and contains metadata about your device.
+    You can inspect the device instance with
+    `ls /sys/class/my_custom_peripheral/`.
+
+- Check the device node:
+    ```bash
+    ls /dev
+    ```
+    You should see `my_custom_peripheral` somewhere.
+    This is the **character device file** created via `udev`.
+    It is the interface used by user-space applications to interact with the driver (e.g., via `open`, `read`, `write`, `ioctl`).
