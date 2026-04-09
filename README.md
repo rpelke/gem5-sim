@@ -22,7 +22,8 @@
     scons build/ARM/gem5.opt -j`nproc`
     ```
 
-    If you want to also build the `dummy_mmio` device, you can use:
+    (Optional)
+    If you want to also build the [accelerator](accelerator/src/linear_function_accelerator.cc), you can use:
     ```bash
     # ${PWD} points to the repositories working directory
     export EXTRAS_DIR=${PWD}/accelerator
@@ -37,31 +38,30 @@
     ./start_vp.bash
     ```
 
-<a id="dummy-mmio"></a>
+<a id="linear-function-accelerator"></a>
 *   (Optional)
-    To attach the (out-of-tree) [`DummyMmio`](accelerator/python/DummyMmio.py) device to the bus, use:
+    To attach the (out-of-tree) [`LinearFunctionAccelerator`](accelerator/python/LinearFunctionAccelerator.py) device to the bus, use:
     ```bash
-    ./start_vp.bash --dummy-mmio
+    ./start_vp.bash --linear-function-accelerator
     ```
 
     If not specified otherwise, the device is attached by default at address `0x1c150000`.
+    The MMIO register layout and behavior are documented in [`accelerator/README.md`](accelerator/README.md).
 
-    To test the `DummyMmio` device, you can use `devmem`.
-    `devmem` is a small Linux userspace tool which can directly read and write memory-mapped physical addresses. This makes it useful for quickly testing MMIO devices without writing a kernel driver first.
+    To test LinearFunctionAccelerator with `devmem`, execute the script `./test_linear_function_accelerator.sh` inside the VP.
+    You can find it under `/root` after login.
+    The source code can be seen [here](https://github.com/rpelke/gem5_sw/tree/main/overlay/root/test_linear_function_accelerator.sh).
 
-    To write `0xcaffee` to the device register from Linux, use:
-    ```bash
-    devmem 0x1c150000 64 0xcaffee
+    Expected output values:
+    ```text
+    Reading output vector lanes
+    lane0: 0x0000000C
+    lane1: 0x0000000E
+    lane2: 0x00000010
+    lane3: 0x00000012
+
+    Test passed
     ```
-
-    To read the register value back, use:
-    ```bash
-    devmem 0x1c150000 64
-    ```
-
-    You should get the following output:
-
-    ![devmem example](docs/images/devmem.png)
 
 ## Debugging
 1. Set the environment variables for the GDB script:
@@ -95,38 +95,38 @@
     telnet localhost 3456
     ```
 
-## Example: Testing the `my_custom_peripheral` Driver
+## Example: Testing the `linear-function-accelerator` Driver
 
 - Make sure the driver is build in [gem5_sw](https://github.com/rpelke/gem5_sw).
 
-- Start the VP with the `--dummy-mmio` flag (see [DummyMmio setup](#dummy-mmio)).
+- Start the VP with the `--linear-function-accelerator` flag (see [accelerator setup](#linear-function-accelerator)).
 
 - Load the driver module:
     ```bash
-    modprobe my_custom_peripheral
+    modprobe linear-function-accelerator
     ```
-    (To unload the module, use `rmmod my_custom_peripheral`.)
+    (To unload the module, use `rmmod linear-function-accelerator`.)
 
-- List registered kernel drivers containing "my_" in name:
+- List registered kernel drivers containing "lfa" in name:
     ```bash
-    cat /proc/devices | grep my_
+    cat /proc/devices | grep lfa
     ```
-    You should get `245 my_custom_peripheral`.
+    You should get `245 lfa`.
 
 - Check the device class in sysfs:
     ```bash
     ls /sys/class
     ```
-    You should see `my_custom_peripheral` somewhere.
+    You should see `lfa` somewhere.
 
     This directory is part of **sysfs** and contains metadata about your device.
     You can inspect the device instance with
-    `ls /sys/class/my_custom_peripheral/`.
+    `ls /sys/class/lfa/`.
 
 - Check the device node:
     ```bash
     ls /dev
     ```
-    You should see `my_custom_peripheral` somewhere.
+    You should see `lfa` somewhere.
     This is the **character device file** created via `udev`.
     It is the interface used by user-space applications to interact with the driver (e.g., via `open`, `read`, `write`, `ioctl`).

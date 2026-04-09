@@ -140,28 +140,29 @@ def get_bootloader_paths() -> list[str]:
     ]
 
 
-def attach_dummy_mmio(board, args) -> None:
-    if not args.dummy_mmio:
+def attach_linear_function_accelerator(board, args) -> None:
+    if not args.linear_function_accelerator:
         return
 
     try:
-        from m5.objects import DummyMmio
+        from m5.objects import LinearFunctionAccelerator
     except ImportError as exc:
         raise RuntimeError(
-            "DummyMmio is not available in this gem5 build. "
+            "LinearFunctionAccelerator is not available in this gem5 build. "
             "Rebuild gem5 with EXTRAS pointing to the accelerator directory."
         ) from exc
 
-    board.dummy_mmio = DummyMmio(
-        pio_addr=args.dummy_mmio_addr,
-        pio_size=args.dummy_mmio_size,
-        pio_latency=args.dummy_mmio_latency,
+    board.linear_function_accelerator = LinearFunctionAccelerator(
+        pio_addr=args.linear_function_accelerator_addr,
+        pio_size=args.linear_function_accelerator_size,
+        pio_latency=args.linear_function_accelerator_latency,
     )
-    board.dummy_mmio.pio = board.get_io_bus().mem_side_ports
+    board.linear_function_accelerator.pio = board.get_io_bus().mem_side_ports
     print(
-        "Attached DummyMmio at "
-        f"{args.dummy_mmio_addr:#x} size={args.dummy_mmio_size:#x} "
-        f"latency={args.dummy_mmio_latency}"
+        "Attached LinearFunctionAccelerator at "
+        f"{args.linear_function_accelerator_addr:#x} "
+        f"size={args.linear_function_accelerator_size:#x} "
+        f"latency={args.linear_function_accelerator_latency}"
     )
 
 
@@ -215,7 +216,7 @@ def create_board(args):
         board.workload.initrd_filename = os.path.abspath(args.initrd)
 
     board._bootloader = get_bootloader_paths()
-    attach_dummy_mmio(board, args)
+    attach_linear_function_accelerator(board, args)
 
     return board
 
@@ -283,27 +284,27 @@ def main():
     )
     parser.add_argument("--restore", type=str, default=None)
     parser.add_argument(
-        "--dummy-mmio",
+        "--linear-function-accelerator",
         action="store_true",
-        help="Attach the out-of-tree DummyMmio peripheral to the board I/O bus",
+        help="Attach the out-of-tree LinearFunctionAccelerator to the board I/O bus",
     )
     parser.add_argument(
-        "--dummy-mmio-addr",
+        "--linear-function-accelerator-addr",
         type=lambda value: int(value, 0),
         default=0x1C150000,
-        help="MMIO base address for DummyMmio",
+        help="MMIO base address for LinearFunctionAccelerator",
     )
     parser.add_argument(
-        "--dummy-mmio-size",
+        "--linear-function-accelerator-size",
         type=lambda value: int(value, 0),
-        default=0x8,
-        help="MMIO window size for DummyMmio",
+        default=0x30,
+        help="MMIO window size for LinearFunctionAccelerator",
     )
     parser.add_argument(
-        "--dummy-mmio-latency",
+        "--linear-function-accelerator-latency",
         type=str,
         default="10ns",
-        help="PIO latency for DummyMmio",
+        help="PIO latency for LinearFunctionAccelerator",
     )
 
     args = parser.parse_args()
