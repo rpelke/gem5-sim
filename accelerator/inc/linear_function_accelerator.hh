@@ -26,7 +26,7 @@ EndBitUnion(ControlRegister)
     uint64_t controlReg;
     std::array<int32_t, vectorWidth> pendingInputVector;
     std::array<int32_t, vectorWidth> outputVector;
-    uint8_t pendingLaneMask;
+    uint16_t pendingInputByteMask;
 
     int32_t coefficientA() const;
     int32_t coefficientB() const;

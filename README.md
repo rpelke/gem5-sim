@@ -1,4 +1,6 @@
 # gem5-sim
+This repository contains an example of a gem5-based full-system simulator (aarch64) including a custom memory-mapped accelerator.
+The corresponding Linux image (buildroot based) and accelerator driver can be found in [gem5_sw](https://github.com/rpelke/gem5_sw).
 
 ## Build & Install
 1. Clone the repository including submodules:
@@ -127,12 +129,18 @@
     ```bash
     ls /dev
     ```
-    You should see `lfa` somewhere.
+    You should see `lfa0` somewhere.
     This is the **character device file** created via `udev`.
     It is the interface used by user-space applications to interact with the driver (e.g., via `open`, `read`, `write`, `ioctl`).
 
+- Test the `lfa` driver inside the VP. You can find it under `/root` after login.
+    The source code can be seen [here](https://github.com/rpelke/gem5_sw/tree/main/overlay/root/test_lfa_driver.sh).
 
-## Host-Guest File Sharing via VirtIO 9p
+    ```bash
+    ./test_lfa_driver.sh
+    ```
+
+## Host-VP File Sharing via VirtIO 9p
 
 Use this setup to share files between host and VP without rebuilding or restarting the VP for every small file change (for example during kernel driver development).
 
@@ -148,7 +156,7 @@ Use this setup to share files between host and VP without rebuilding or restarti
 
     ```bash
     # Host folder
-    export HOST_9P_SHARE_DIR=<absolute-path-to-m5out/9p/share-folder>
+    export HOST_9P_SHARE_DIR=<absolute_path_to_m5out/9p/share-folder>
 
     # VP folder
     mkdir -p /root/share9p

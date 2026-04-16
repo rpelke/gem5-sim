@@ -23,7 +23,7 @@ int32_t wrapLinearFunction(int32_t a, int32_t x, int32_t b) {
 LinearFunctionAccelerator::LinearFunctionAccelerator(const Params &p)
     : BasicPioDevice(p, p.pio_size), controlReg(0),
       pendingInputVector{0, 0, 0, 0}, outputVector{0, 0, 0, 0},
-      pendingLaneMask(0) {}
+      pendingInputByteMask(0) {}
 
 int32_t LinearFunctionAccelerator::coefficientA() const {
     ControlRegister reg(controlReg);
@@ -99,16 +99,20 @@ Tick LinearFunctionAccelerator::read(PacketPtr pkt) {
         return pioDelay;
     }
 
-    if (off == outputVectorOffset && size == vectorSize) {
-        std::memcpy(pkt->getPtr<uint8_t>(), outputVector.data(), vectorSize);
-        return pioDelay;
-    }
+    if (off >= outputVectorOffset && off < outputVectorOffset + vectorSize) {
+        const Addr outputEnd = outputVectorOffset + vectorSize;
+        const Addr readEnd = off + size;
 
-    if (off >= outputVectorOffset && off < outputVectorOffset + vectorSize &&
-        size == sizeof(int32_t) &&
-        ((off - outputVectorOffset) % sizeof(int32_t) == 0)) {
-        const size_t lane = (off - outputVectorOffset) / sizeof(int32_t);
-        pkt->setLE<int32_t>(outputVector[lane]);
+        if (size == 0 || readEnd > outputEnd) {
+            panic("LinearFunctionAccelerator: invalid output read addr=%#x "
+                  "size=%u",
+                  pkt->getAddr(), size);
+        }
+
+        const auto *outputBytes =
+            reinterpret_cast<const uint8_t *>(outputVector.data());
+        const size_t byteOffset = off - outputVectorOffset;
+        std::memcpy(pkt->getPtr<uint8_t>(), outputBytes + byteOffset, size);
         return pioDelay;
     }
 
@@ -137,27 +141,31 @@ Tick LinearFunctionAccelerator::write(PacketPtr pkt) {
         return pioDelay;
     }
 
-    if (off == inputVectorOffset && size == vectorSize) {
-        inform("LinearFunctionAccelerator: Received input vector of size %u",
-               static_cast<unsigned>(size));
-        std::memcpy(pendingInputVector.data(), pkt->getPtr<uint8_t>(),
-                    vectorSize);
-        pendingLaneMask = 0;
-        processVector(pendingInputVector);
-        return pioDelay;
-    }
+    if (off >= inputVectorOffset && off < inputVectorOffset + vectorSize) {
+        const Addr inputStart = inputVectorOffset;
+        const Addr inputEnd = inputVectorOffset + vectorSize;
+        const Addr writeEnd = off + size;
 
-    if (off >= inputVectorOffset && off < inputVectorOffset + vectorSize &&
-        size == sizeof(int32_t) &&
-        ((off - inputVectorOffset) % sizeof(int32_t) == 0)) {
-        inform("LinearFunctionAccelerator: Received input lane write at offset "
-               "%#x",
-               static_cast<unsigned>(off));
-        const size_t lane = (off - inputVectorOffset) / sizeof(int32_t);
-        pendingInputVector[lane] = pkt->getLE<int32_t>();
-        pendingLaneMask |= static_cast<uint8_t>(1U << lane);
-        if (pendingLaneMask == 0x0f) {
-            pendingLaneMask = 0;
+        if (size == 0 || writeEnd > inputEnd) {
+            panic("LinearFunctionAccelerator: invalid input write addr=%#x "
+                  "size=%u",
+                  pkt->getAddr(), size);
+        }
+
+        auto *inputBytes =
+            reinterpret_cast<uint8_t *>(pendingInputVector.data());
+        const size_t byteOffset = off - inputStart;
+        std::memcpy(inputBytes + byteOffset, pkt->getPtr<uint8_t>(), size);
+
+        for (size_t i = 0; i < size; ++i) {
+            pendingInputByteMask |=
+                static_cast<uint16_t>(1U << (byteOffset + i));
+        }
+
+        constexpr uint16_t allInputBytesWritten =
+            static_cast<uint16_t>((1U << vectorSize) - 1U);
+        if (pendingInputByteMask == allInputBytesWritten) {
+            pendingInputByteMask = 0;
             processVector(pendingInputVector);
         }
         return pioDelay;
