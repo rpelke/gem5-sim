@@ -103,9 +103,9 @@
 
 - Load the driver module:
     ```bash
-    modprobe linear-function-accelerator
+    modprobe lfa
     ```
-    (To unload the module, use `rmmod linear-function-accelerator`.)
+    (To unload the module, use `rmmod lfa`.)
 
 - List registered kernel drivers containing "lfa" in name:
     ```bash
@@ -130,3 +130,32 @@
     You should see `lfa` somewhere.
     This is the **character device file** created via `udev`.
     It is the interface used by user-space applications to interact with the driver (e.g., via `open`, `read`, `write`, `ioctl`).
+
+
+## Host-Guest File Sharing via VirtIO 9p
+
+Use this setup to share files between host and VP without rebuilding or restarting the VP for every small file change (for example during kernel driver development).
+
+1. Install `diod` on the host: `diod` provides the 9p file server backend used by gem5's `VirtIO9PDiod` device.
+
+1. Start the VP with 9p attached: 9p is optional and disabled by default. Enable it explicitly with `--attach-9p`.
+
+    ```bash
+    ./start_vp.bash --attach-9p
+    ```
+
+1. Mount the shared folder inside the VP:
+
+    ```bash
+    # Host folder
+    export HOST_9P_SHARE_DIR=<absolute-path-to-m5out/9p/share-folder>
+
+    # VP folder
+    mkdir -p /root/share9p
+
+    # Mount
+    mount -t 9p -o trans=virtio,version=9p2000.L,aname=${HOST_9P_SHARE_DIR} gem5 /root/share9p
+
+    # Unmount
+    umount /root/share9p
+    ```

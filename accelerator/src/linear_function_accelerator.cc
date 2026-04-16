@@ -131,16 +131,17 @@ Tick LinearFunctionAccelerator::write(PacketPtr pkt) {
         updateControlRegister(off, size,
                               size == controlRegSize ? pkt->getLE<uint64_t>()
                                                      : pkt->getLE<uint32_t>());
-        inform(
-            "LinearFunctionAccelerator: control <- %#llx (a=%d, b=%d)",
-            static_cast<unsigned long long>(controlReg),
-            coefficientA(), coefficientB());
+        inform("LinearFunctionAccelerator: control <- %#llx (a=%d, b=%d)",
+               static_cast<unsigned long long>(controlReg), coefficientA(),
+               coefficientB());
         return pioDelay;
     }
 
     if (off == inputVectorOffset && size == vectorSize) {
-        std::memcpy(
-            pendingInputVector.data(), pkt->getPtr<uint8_t>(), vectorSize);
+        inform("LinearFunctionAccelerator: Received input vector of size %u",
+               static_cast<unsigned>(size));
+        std::memcpy(pendingInputVector.data(), pkt->getPtr<uint8_t>(),
+                    vectorSize);
         pendingLaneMask = 0;
         processVector(pendingInputVector);
         return pioDelay;
@@ -149,6 +150,9 @@ Tick LinearFunctionAccelerator::write(PacketPtr pkt) {
     if (off >= inputVectorOffset && off < inputVectorOffset + vectorSize &&
         size == sizeof(int32_t) &&
         ((off - inputVectorOffset) % sizeof(int32_t) == 0)) {
+        inform("LinearFunctionAccelerator: Received input lane write at offset "
+               "%#x",
+               static_cast<unsigned>(off));
         const size_t lane = (off - inputVectorOffset) / sizeof(int32_t);
         pendingInputVector[lane] = pkt->getLE<int32_t>();
         pendingLaneMask |= static_cast<uint8_t>(1U << lane);

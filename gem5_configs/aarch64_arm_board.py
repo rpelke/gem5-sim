@@ -3,11 +3,9 @@ import os
 from pathlib import Path
 
 import m5
-from m5.objects import (
-    ArmDefaultRelease,
-    ArmExtension,
-    VExpress_GEM5_V1,
-)
+import m5.defines
+from m5.objects import *
+from m5.util import *
 
 from gem5.components.boards.abstract_board import AbstractBoard
 from gem5.components.boards.arm_board import ArmBoard
@@ -166,6 +164,20 @@ def attach_linear_function_accelerator(board, args) -> None:
     )
 
 
+def attach_9p(parent):
+    viopci = PciVirtIO()
+    viopci.vio = VirtIO9PDiod()
+    viopci.vio.tag = "gem5"
+    viodir = os.path.realpath(os.path.join(m5.options.outdir, "9p"))
+    viopci.vio.root = os.path.join(viodir, "share")
+    viopci.vio.socketPath = os.path.join(viodir, "socket")
+    os.makedirs(viopci.vio.root, exist_ok=True)
+    if os.path.exists(viopci.vio.socketPath):
+        os.remove(viopci.vio.socketPath)
+    parent.viopci = viopci
+    parent.attachPciDevice(viopci)
+
+
 def create_board(args):
     if args.script and not os.path.isfile(args.script):
         raise FileNotFoundError(f"Bootscript does not exist: {args.script}")
@@ -217,6 +229,9 @@ def create_board(args):
 
     board._bootloader = get_bootloader_paths()
     attach_linear_function_accelerator(board, args)
+
+    if args.attach_9p:
+        attach_9p(board.realview)
 
     return board
 
@@ -305,6 +320,11 @@ def main():
         type=str,
         default="10ns",
         help="PIO latency for LinearFunctionAccelerator",
+    )
+    parser.add_argument(
+        "--attach-9p",
+        action="store_true",
+        help="Attach the VirtIO 9p device to the board PCI bus",
     )
 
     args = parser.parse_args()
