@@ -1,4 +1,5 @@
 from m5.objects.Device import BasicPioDevice
+from m5.objects.Gic import ArmInterruptPin
 from m5.params import *
 
 
@@ -9,6 +10,7 @@ class LinearFunctionAccelerator(BasicPioDevice):
     cxx_header = "linear_function_accelerator.hh"
 
     pio_size = Param.Addr(
-        0x30,
-        "Size of the MMIO window: 64-bit control register plus 128-bit input and output vectors",
+        0x40,
+        "Size of the MMIO window: 64-bit control register, 64-bit IRQ clear register, plus 128-bit input and output vectors",
     )
+    interrupt = Param.ArmInterruptPin("Interrupt to use for this device")

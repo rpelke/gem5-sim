@@ -9,16 +9,17 @@ The computation uses 64-bit intermediate arithmetic and writes results back with
 ## Functionality
 
 - 64-bit control register containing coefficients `a` and `b`.
+- 64-bit IRQ clear register.
 - 128-bit input vector (`4 x int32`).
 - 128-bit output vector (`4 x int32`).
-- After a valid input transfer, the output vector is updated immediately.
+- After a valid input transfer, the output vector is updated after a fixed 50ns processing delay.
 
 ## MMIO Interface
 
 By default, the device is attached in the board configuration with:
 
 - Base address: `0x1C150000`
-- Window size: `0x30`
+- Window size: `0x38`
 - PIO latency: `10ns`
 
 Offsets relative to the base address:
@@ -26,6 +27,7 @@ Offsets relative to the base address:
 - `0x00`: Control register (`uint64`)
 - `0x10`: Input vector (`4 x int32`, total 16 bytes)
 - `0x20`: Output vector (`4 x int32`, total 16 bytes)
+- `0x30`: IRQ clear register (`uint64`)
 
 ### Control Register (`0x00`)
 
@@ -43,7 +45,7 @@ Accesses:
 
 Supported write modes:
 
-- Full write of 16 bytes at `0x10`: triggers computation immediately.
+- Full write of 16 bytes at `0x10`: triggers computation (result becomes ready after 50ns).
 - Per-lane writes of 4 bytes at:
   - `0x10` (Lane 0)
   - `0x14` (Lane 1)
@@ -62,6 +64,14 @@ Supported read modes:
   - `0x24` (Lane 1)
   - `0x28` (Lane 2)
   - `0x2C` (Lane 3)
+
+Reading the output vector does not clear the interrupt.
+
+### IRQ Clear Register (`0x30`)
+
+- Reset value: `0`.
+- Write `1` to clear/deassert the interrupt line.
+- If the device is waiting for output consumption, writing `1` also releases it for the next request.
 
 ## Valid and Invalid Accesses
 

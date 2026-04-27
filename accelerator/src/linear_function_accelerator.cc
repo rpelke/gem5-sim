@@ -4,8 +4,10 @@
 #include <cstring>
 
 #include "base/logging.hh"
+#include "dev/arm/base_gic.hh"
 #include "mem/packet.hh"
 #include "mem/packet_access.hh"
+#include "sim/core.hh"
 
 namespace gem5 {
 
@@ -21,9 +23,12 @@ int32_t wrapLinearFunction(int32_t a, int32_t x, int32_t b) {
 } // anonymous namespace
 
 LinearFunctionAccelerator::LinearFunctionAccelerator(const Params &p)
-    : BasicPioDevice(p, p.pio_size), controlReg(0),
-      pendingInputVector{0, 0, 0, 0}, outputVector{0, 0, 0, 0},
-      pendingInputByteMask(0) {}
+    : BasicPioDevice(p, p.pio_size), controlReg(0), irqClearReg(0),
+      irqStatus(IrqStatus::ReadyToProcess), pendingInputVector{0, 0, 0, 0},
+      activeInputVector{0, 0, 0, 0}, queuedInputVector{0, 0, 0, 0},
+      outputVector{0, 0, 0, 0}, pendingInputByteMask(0), hasQueuedInput(false),
+      _interrupt(p.interrupt->get()),
+      processEvent([this] { processVector(); }, name() + ".processEvent") {}
 
 int32_t LinearFunctionAccelerator::coefficientA() const {
     ControlRegister reg(controlReg);
@@ -65,19 +70,35 @@ void LinearFunctionAccelerator::updateControlRegister(Addr off,
           pioAddr + off, accessSize);
 }
 
-void LinearFunctionAccelerator::processVector(
+void LinearFunctionAccelerator::scheduleVectorProcessing(
     const std::array<int32_t, vectorWidth> &inputVector) {
+    panic_if(processEvent.scheduled(),
+             "LinearFunctionAccelerator: processing event already scheduled");
+    activeInputVector = inputVector;
+    schedule(processEvent, curTick() + 50 * sim_clock::as_int::ns);
+}
+
+void LinearFunctionAccelerator::processVector() {
+    if (irqStatus != IrqStatus::ReadyToProcess) {
+        schedule(processEvent, curTick() + 10 * sim_clock::as_int::ns);
+        return;
+    }
+
     const int32_t a = coefficientA();
     const int32_t b = coefficientB();
 
     for (size_t lane = 0; lane < vectorWidth; ++lane) {
-        outputVector[lane] = wrapLinearFunction(a, inputVector[lane], b);
+        outputVector[lane] = wrapLinearFunction(a, activeInputVector[lane], b);
     }
 
     inform("LinearFunctionAccelerator: a=%d b=%d in=[%d, %d, %d, %d] out=[%d, "
            "%d, %d, %d]",
-           a, b, inputVector[0], inputVector[1], inputVector[2], inputVector[3],
-           outputVector[0], outputVector[1], outputVector[2], outputVector[3]);
+           a, b, activeInputVector[0], activeInputVector[1],
+           activeInputVector[2], activeInputVector[3], outputVector[0],
+           outputVector[1], outputVector[2], outputVector[3]);
+
+    irqStatus = IrqStatus::WaitForOutputRead;
+    _interrupt->raise();
 }
 
 Tick LinearFunctionAccelerator::read(PacketPtr pkt) {
@@ -87,6 +108,11 @@ Tick LinearFunctionAccelerator::read(PacketPtr pkt) {
 
     if (off == controlRegOffset && size == controlRegSize) {
         pkt->setLE<uint64_t>(controlReg);
+        return pioDelay;
+    }
+
+    if (off == irqClearRegOffset && size == sizeof(uint64_t)) {
+        pkt->setLE<uint64_t>(irqClearReg);
         return pioDelay;
     }
 
@@ -113,6 +139,7 @@ Tick LinearFunctionAccelerator::read(PacketPtr pkt) {
             reinterpret_cast<const uint8_t *>(outputVector.data());
         const size_t byteOffset = off - outputVectorOffset;
         std::memcpy(pkt->getPtr<uint8_t>(), outputBytes + byteOffset, size);
+
         return pioDelay;
     }
 
@@ -124,6 +151,26 @@ Tick LinearFunctionAccelerator::write(PacketPtr pkt) {
     const Addr off = pkt->getAddr() - pioAddr;
     const size_t size = pkt->getSize();
     pkt->makeAtomicResponse();
+
+    if (off == irqClearRegOffset) {
+        if (size != sizeof(uint64_t)) {
+            panic("LinearFunctionAccelerator: invalid irq clear write addr=%#x "
+                  "size=%u",
+                  pkt->getAddr(), size);
+        }
+
+        irqClearReg = pkt->getLE<uint64_t>();
+        if (irqClearReg & 0x1ULL) {
+            inform("LFA: Clear interrupt.");
+            _interrupt->clear();
+            irqStatus = IrqStatus::ReadyToProcess;
+            if (hasQueuedInput) {
+                hasQueuedInput = false;
+                scheduleVectorProcessing(queuedInputVector);
+            }
+        }
+        return pioDelay;
+    }
 
     if (off == controlRegOffset || off == controlRegOffset + sizeof(uint32_t)) {
         if (size != controlRegSize && size != sizeof(uint32_t)) {
@@ -166,7 +213,17 @@ Tick LinearFunctionAccelerator::write(PacketPtr pkt) {
             static_cast<uint16_t>((1U << vectorSize) - 1U);
         if (pendingInputByteMask == allInputBytesWritten) {
             pendingInputByteMask = 0;
-            processVector(pendingInputVector);
+            const bool busy = irqStatus == IrqStatus::WaitForOutputRead ||
+                              processEvent.scheduled();
+            if (busy) {
+                panic_if(hasQueuedInput,
+                         "LinearFunctionAccelerator: only one queued input "
+                         "vector is supported");
+                queuedInputVector = pendingInputVector;
+                hasQueuedInput = true;
+            } else {
+                scheduleVectorProcessing(pendingInputVector);
+            }
         }
         return pioDelay;
     }

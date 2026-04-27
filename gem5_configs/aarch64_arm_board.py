@@ -142,6 +142,8 @@ def attach_linear_function_accelerator(board, args) -> None:
     if not args.linear_function_accelerator:
         return
 
+    lfa_irq_spi = 41
+
     try:
         from m5.objects import LinearFunctionAccelerator
     except ImportError as exc:
@@ -154,13 +156,15 @@ def attach_linear_function_accelerator(board, args) -> None:
         pio_addr=args.linear_function_accelerator_addr,
         pio_size=args.linear_function_accelerator_size,
         pio_latency=args.linear_function_accelerator_latency,
+        interrupt=ArmSPI(num=lfa_irq_spi),
     )
     board.linear_function_accelerator.pio = board.get_io_bus().mem_side_ports
     print(
         "Attached LinearFunctionAccelerator at "
         f"{args.linear_function_accelerator_addr:#x} "
         f"size={args.linear_function_accelerator_size:#x} "
-        f"latency={args.linear_function_accelerator_latency}"
+        f"latency={args.linear_function_accelerator_latency} "
+        f"irq_spi={lfa_irq_spi}"
     )
 
 
@@ -312,7 +316,7 @@ def main():
     parser.add_argument(
         "--linear-function-accelerator-size",
         type=lambda value: int(value, 0),
-        default=0x30,
+        default=0x40,
         help="MMIO window size for LinearFunctionAccelerator",
     )
     parser.add_argument(
